@@ -3,13 +3,13 @@ set -euo pipefail
 CSV_FILE="$1"
 DELIMITER=","
 declare -a MATRIX=()
-COLUMNS=0
+NUM_COLS=0
 while IFS=$DELIMITER read -r -a ROW_ARRAY; do
 	MATRIX+=("${ROW_ARRAY[@]}")
-	COLUMNS="${#ROW_ARRAY[@]}"
+	NUM_COLS="${#ROW_ARRAY[@]}"
 done < "$CSV_FILE"
 #Avem fisierul csv in MATRIX ca un vector simplu
-#Folosind columns il putem trata ca un matrix dupa formula i*COLUMNS+j
+#Folosind columns il putem trata ca un matrix dupa formula i*NUM_COLS+j
 
 help(){
 echo "Usage: ./csv_tool.sh csv_filename [OPTION]"
@@ -30,7 +30,7 @@ local header="$1"
 local value="$2"
 local header_index=-1;
 local i
-for ((i=0;i<=COLUMNS-1;i++)); do
+for ((i=0;i<=NUM_COLS-1;i++)); do
   if [[ "${MATRIX[$i]}" == "$header" ]]; then
     header_index=$i
     break
@@ -41,15 +41,15 @@ if ((header_index==-1)); then
   return 1
 fi
 local obs=0
-local MATRIX_UPDATED=("${MATRIX[@]:0:COLUMNS}")
+local MATRIX_UPDATED=("${MATRIX[@]:0:NUM_COLS}")
 local row
-for ((row=COLUMNS;row<${#MATRIX[@]};row+=COLUMNS)); do
+for ((row=NUM_COLS;row<${#MATRIX[@]};row+=NUM_COLS)); do
   local selected_value="${MATRIX[header_index+row]}"
   if [[ "$selected_value" == "$value" ]]; then
-    ((obs++))
+    ((obs+=1))
     continue
   fi
-  MATRIX_UPDATED+=("${MATRIX[@]:row:COLUMNS}")
+  MATRIX_UPDATED+=("${MATRIX[@]:row:NUM_COLS}")
 done
 if ((obs==0)); then
   echo "Warning: No occurrence of $value has been found in column $header" >&2
@@ -61,20 +61,31 @@ return 0
 }
 
 save_csv(){
-  #todo
+  mv "$CSV_FILE" "$CSV_FILE".old
+  touch "$CSV_FILE"
+  for ((i=0;i<${#MATRIX[@]}/NUM_COLS;i++)); do
+    for ((j=0;j<=NUM_COLS-1;j++)); do
+      echo -n "${MATRIX[i*NUM_COLS+j]}" >> "$CSV_FILE"
+      if ((j!=NUM_COLS-1)); then
+        echo -n "," >> "$CSV_FILE"
+      fi
+    done
+    echo "" >> "$CSV_FILE"
+  done
 }
 
 case "${2}" in
   --help)
     help
     ;;
-  *)
-    echo "Invalid option: ${2}" >&2
-    help
-    ;;
   --remove)
     header=${3}
     value=${4}
     remove "$header" "$value"
-    #save_csv
+    save_csv
+    ;;
+  *)
+    echo "Invalid option: ${2}" >&2
+    help
+    ;;
 esac
