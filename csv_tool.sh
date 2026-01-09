@@ -1,5 +1,9 @@
 #!/bin/bash
 set -euo pipefail
+if [[ -z "${1:-}" || ! -f "${1:-}" ]]; then
+    echo "Please pass a CSV file."
+    exit 0
+fi
 CSV_FILE="$1"
 DELIMITER=","
 declare -a MATRIX=()
@@ -163,11 +167,6 @@ where(){
   print_rows_by_offsets "${OFFSETS[@]}"
 }
 
-######
-# Masquerade a fost aici : "--sort-by"  :(  )
-######
-
-
 sort_by(){
   local header="$1"
   local direction="${2:-asc}"
@@ -292,6 +291,11 @@ select_columns() {
   done
 }
 
+if [ -z "${2:-}" ]; then
+    echo "Please pass a CSV function."
+    exit 0
+fi
+
 case "${2}" in
   --help)
     help
@@ -310,6 +314,7 @@ case "${2}" in
     header=${3}
     direction=${4:-asc}
     sort_by "$header" "$direction"
+    ;;
   --validate)
     validate
     ;;
