@@ -43,7 +43,10 @@ echo "--select: outputs selected columns given by the user through a variable."
 echo "Usage: ./csv_tool.sh csv_filename --select "column1,column2"."
 echo "Output will be the whole selected columns or an error if any of the columns could not be found."
 echo ""
-exit 1
+echo "--group-fields: counts the number of times a field appears in a category."
+echo "Usage: ./csv_tool.sh csv_filename --group-fields columnToBeParsed"
+echo ""
+exit 0
 }
 
 
@@ -291,6 +294,35 @@ select_columns() {
   done
 }
 
+group_fields() {
+  # We first test to see if the column given by the user exists,
+  # if true then we add every field in a Hash DS and we print their value,
+  # else the programs exits with the message below.
+  awk -F',' -v parsedColumn="$2" '
+  NR == 1 { 
+    c=""
+    for (i = 1; i <= NF; i++)
+        if ($i == parsedColumn) {
+            c = i
+            verify=$i
+        }
+    if (c == "") {
+      print "The column does not exist in the given file."
+      exit 0
+    }
+    print parsedColumn ": count"
+    next
+  }
+  {
+    fieldCounter[$c]++
+  }
+  END {
+    for (elem in fieldCounter)
+        print elem ": " fieldCounter[elem]
+  }
+  ' "$1"
+}
+
 if [ -z "${2:-}" ]; then
     echo "Please pass a CSV function."
     exit 0
@@ -320,6 +352,11 @@ case "${2}" in
     ;;
   --select)
     select_columns "$3"
+    ;;
+  --group-fields)
+    groupedColumn="$3"
+    csvFile="$1"
+    group_fields "$csvFile" "$groupedColumn"
     ;;
   *)
     echo "Invalid option: ${2}" >&2
