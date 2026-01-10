@@ -1,5 +1,9 @@
 #!/bin/bash
 set -euo pipefail
+if [[ -z "${1:-}" || ! -f "${1:-}" ]]; then
+    echo "Please pass a CSV file."
+    exit 0
+fi
 CSV_FILE="$1"
 DELIMITER=","
 declare -a MATRIX=()
@@ -39,9 +43,17 @@ echo "--select: outputs selected columns given by the user through a variable."
 echo "Usage: ./csv_tool.sh csv_filename --select "column1,column2"."
 echo "Output will be the whole selected columns or an error if any of the columns could not be found."
 echo ""
-exit 1
+echo "--group-fields: counts the number of times a field appears in a category."
+echo "Usage: ./csv_tool.sh csv_filename --group-fields columnToBeParsed"
+echo ""
+echo "--stats: outputs canonical statistics of the given column."
+echo "Usage: ./csv_tool.sh csv_filename --stats columnToBeParsed"
+echo "Note: the column must have at least one field and it must be numeric."
+echo ""
+echo "--distinct-fields: outputs the number of distinct fields for each category."
+echo "Usage: ./csv_tool.sh csv_filename --distinct-fields"
+exit 0
 }
-
 
 remove(){
   local header="$1"
@@ -162,11 +174,6 @@ where(){
 
   print_rows_by_offsets "${OFFSETS[@]}"
 }
-
-######
-# Masquerade a fost aici : "--sort-by"  :(  )
-######
-
 
 sort_by(){
   local header="$1"
@@ -292,6 +299,131 @@ select_columns() {
   done
 }
 
+group_fields() {
+  # We first test to see if the column given by the user exists,
+  # if true then we add every field in a Hash DS and we print their value,
+  # else the programs exits with the message below.
+  awk -F',' -v parsedColumn="$2" '
+  NR == 1 { 
+    c=""
+    for (i = 1; i <= NF; i++)
+        if ($i == parsedColumn) 
+            c = i
+    if (c == "") {
+      print "The column does not exist in the given file."
+      exit 0
+    }
+    print parsedColumn ": count"
+    next
+  }
+  {
+    fieldCounter[$c]++
+  }
+  END {
+    for (elem in fieldCounter)
+        print elem ": " fieldCounter[elem]
+  }
+  ' "$1"
+}
+
+stats() {
+  # We verify that the column given by the user is valid.
+  # Also, if there exists a non-numeric field on the column, we exit the function, giving the user an output.
+  # We iterate through all fields of the column and we store the corresponding data in the variables below.
+  # After reaching the END section, we print out the stats.
+  awk -F',' -v col=$2 '
+  NR == 1 {
+      c=""
+      verify=""
+      for (i=1; i<=NF; i++)
+          if ($i == col)
+              c=i
+      if (c == "") {
+          print "The column does not exist in the given file."
+          exit 0
+      }
+      next
+  }
+  NR == 2 {
+      if ($c+0 == 0 && $c != 0) {
+        print "Non numeric category. For additional details, check --help"
+        verify="notEnd"
+        exit 0
+      }
+      zero=0
+      minValue=$c
+      maxValue=$c
+      sumaVal=$c
+      if ($c == 0)
+        zero++
+      next
+  }
+  {
+    if ($c+0 == 0 && $c != 0) {
+        print "Non numeric category. For additional details, check --help"
+        verify="notEnd"
+        exit 0
+    }
+    if (minValue > $c)
+      minValue = $c
+    if (maxValue < $c)
+      maxValue = $c
+    if ($c == 0)
+      zero++
+    sumaVal+=$c
+  }
+  END {
+    if (verify == "notEnd" || NR-1==0)
+      exit 0
+    print "Coloana: " col "\nNumar campuri: " NR-1
+    print "Numar zerouri: " zero "\nMinim: " minValue "\nMaxim: " maxValue "\nSuma: " sumaVal "\nMedia aritmetica: " sumaVal/(NR-1)
+  }
+  ' "$1"
+}
+
+distinct_fields() {
+  # Iterate through all the fields of the categories and add them in 
+  # a Hash DS; in the END section we split the keys in an array and 
+  # we count every field which corresponds to its category.
+  awk -F',' '
+  NR == 1 {
+  ctgyLen=0
+    for (i=1; i<=NF; i++) {
+      ctgy[i]=$i
+      ctgyLen++
+    }
+    next
+  }
+  {
+    for (i=1; i<=NF; i++)
+      countDistinct[i, $i]=1
+  }
+  END {
+    for (i=1; i<=ctgyLen; i++) {
+      counter=0
+      for(elem in countDistinct) {
+        split(elem, auxVec, SUBSEP)
+        if (auxVec[1]==i)
+          counter++
+      }
+      if (counter > 1)
+        print ctgy[i] ": " counter " campuri distincte"
+      else if (counter==0 && auxVec[1]=="") {
+        print "Nu exista campuri asociate categoriilor"
+        exit 0
+      }
+      else
+        print ctgy[i] ": toate campurile sunt egale"
+    }
+  }
+  ' "$1"
+}
+
+if [ -z "${2:-}" ]; then
+    echo "Please pass a CSV function."
+    exit 0
+fi
+
 case "${2}" in
   --help)
     help
@@ -310,11 +442,26 @@ case "${2}" in
     header=${3}
     direction=${4:-asc}
     sort_by "$header" "$direction"
+    ;;
   --validate)
     validate
     ;;
   --select)
     select_columns "$3"
+    ;;
+  --group-fields)
+    groupedColumn="$3"
+    csvFile="$1"
+    group_fields "$csvFile" "$groupedColumn"
+    ;;
+  --stats)
+    statsColumn="$3"
+    csvFile="$1"
+    stats "$csvFile" "$statsColumn"
+    ;;
+  --distinct-fields)
+    csvFile="$1"
+    distinct_fields "$csvFile"
     ;;
   *)
     echo "Invalid option: ${2}" >&2
