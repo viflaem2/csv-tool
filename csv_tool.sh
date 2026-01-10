@@ -49,9 +49,11 @@ echo ""
 echo "--stats: outputs canonical statistics of the given column."
 echo "Usage: ./csv_tool.sh csv_filename --stats columnToBeParsed"
 echo "Note: the column must have at least one field and it must be numeric."
+echo ""
+echo "--distinct-fields: outputs the number of distinct fields for each category."
+echo "Usage: ./csv_tool.sh csv_filename --distinct-fields"
 exit 0
 }
-
 
 remove(){
   local header="$1"
@@ -379,6 +381,44 @@ stats() {
   ' "$1"
 }
 
+distinct_fields() {
+  # Iterate through all the fields of the categories and add them in 
+  # a Hash DS; in the END section we split the keys in an array and 
+  # we count every field which corresponds to its category.
+  awk -F',' '
+  NR == 1 {
+  ctgyLen=0
+    for (i=1; i<=NF; i++) {
+      ctgy[i]=$i
+      ctgyLen++
+    }
+    next
+  }
+  {
+    for (i=1; i<=NF; i++)
+      countDistinct[i, $i]=1
+  }
+  END {
+    for (i=1; i<=ctgyLen; i++) {
+      counter=0
+      for(elem in countDistinct) {
+        split(elem, auxVec, SUBSEP)
+        if (auxVec[1]==i)
+          counter++
+      }
+      if (counter > 1)
+        print ctgy[i] ": " counter " campuri distincte"
+      else if (counter==0 && auxVec[1]=="") {
+        print "Nu exista campuri asociate categoriilor"
+        exit 0
+      }
+      else
+        print ctgy[i] ": toate campurile sunt egale"
+    }
+  }
+  ' "$1"
+}
+
 if [ -z "${2:-}" ]; then
     echo "Please pass a CSV function."
     exit 0
@@ -418,6 +458,10 @@ case "${2}" in
     statsColumn="$3"
     csvFile="$1"
     stats "$csvFile" "$statsColumn"
+    ;;
+  --distinct-fields)
+    csvFile="$1"
+    distinct_fields "$csvFile"
     ;;
   *)
     echo "Invalid option: ${2}" >&2
