@@ -5,6 +5,7 @@ A simple Bash-based CSV manipulation tool. It allows you to inspect, filter, sor
 Overview:
 
 csv_tool.sh reads a CSV file into memory as a matrix and provides several operations to inspect, transform, and analyze CSV data.
+
 Features include:
 Remove rows by value (--remove)
 Filter rows by condition (--where)
