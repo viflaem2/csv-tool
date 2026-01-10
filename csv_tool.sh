@@ -46,6 +46,9 @@ echo ""
 echo "--group-fields: counts the number of times a field appears in a category."
 echo "Usage: ./csv_tool.sh csv_filename --group-fields columnToBeParsed"
 echo ""
+echo "--stats: outputs some stats of the given column."
+echo "Usage: ./csv_tool.sh csv_filename --stats columnToBeParsed"
+echo "Note: the column must have at least one field and it must be numeric."
 exit 0
 }
 
@@ -302,10 +305,8 @@ group_fields() {
   NR == 1 { 
     c=""
     for (i = 1; i <= NF; i++)
-        if ($i == parsedColumn) {
+        if ($i == parsedColumn) 
             c = i
-            verify=$i
-        }
     if (c == "") {
       print "The column does not exist in the given file."
       exit 0
@@ -319,6 +320,61 @@ group_fields() {
   END {
     for (elem in fieldCounter)
         print elem ": " fieldCounter[elem]
+  }
+  ' "$1"
+}
+
+stats() {
+  # We verify that the column given by the user is valid.
+  # Also, if there exists a non-numeric field on the column, we exit the function, giving the user an output.
+  # We iterate through all fields of the column and we store the corresponding data in the variables below.
+  # After reaching the END section, we print out the stats.
+  awk -F',' -v col=$2 '
+  NR == 1 {
+      c=""
+      verify=""
+      for (i=1; i<=NF; i++)
+          if ($i == col)
+              c=i
+      if (c == "") {
+          print "The column does not exist in the given file."
+          exit 0
+      }
+      next
+  }
+  NR == 2 {
+      if ($c+0 == 0 && $c != 0) {
+        print "Non numeric category. For additional details, check --help"
+        verify="notEnd"
+        exit 0
+      }
+      zero=0
+      minValue=$c
+      maxValue=$c
+      sumaVal=$c
+      if ($c == 0)
+        zero++
+      next
+  }
+  {
+    if ($c+0 == 0 && $c != 0) {
+        print "Non numeric category. For additional details, check --help"
+        verify="notEnd"
+        exit 0
+    }
+    if (minValue > $c)
+      minValue = $c
+    if (maxValue < $c)
+      maxValue = $c
+    if ($c == 0)
+      zero++
+    sumaVal+=$c
+  }
+  END {
+    if (verify == "notEnd" || NR-1==0)
+      exit 0
+    print "Coloana: " col "\nNumar campuri: " NR-1
+    print "Numar zerouri: " zero "\nMinim: " minValue "\nMaxim: " maxValue "\nSuma: " sumaVal "\nMedia aritmetica: " sumaVal/(NR-1)
   }
   ' "$1"
 }
@@ -357,6 +413,11 @@ case "${2}" in
     groupedColumn="$3"
     csvFile="$1"
     group_fields "$csvFile" "$groupedColumn"
+    ;;
+  --stats)
+    statsColumn="$3"
+    csvFile="$1"
+    stats "$csvFile" "$statsColumn"
     ;;
   *)
     echo "Invalid option: ${2}" >&2
