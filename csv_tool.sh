@@ -46,7 +46,7 @@ echo ""
 echo "--group-fields: counts the number of times a field appears in a category."
 echo "Usage: ./csv_tool.sh csv_filename --group-fields columnToBeParsed"
 echo ""
-echo "--stats: outputs some stats of the given column."
+echo "--stats: outputs canonical statistics of the given column."
 echo "Usage: ./csv_tool.sh csv_filename --stats columnToBeParsed"
 echo "Note: the column must have at least one field and it must be numeric."
 exit 0
